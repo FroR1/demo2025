@@ -1,6 +1,7 @@
 #!/bin/bash
 apt-get update
 apt-get install nftables -y
+systemctl enable --now nftables
 echo "ISP" > '/etc/hostname'
 mkdir '/etc/net/ifaces/ens224' '/etc/net/ifaces/ens256'
 touch '/etc/net/ifaces/ens224/options' '/etc/net/ifaces/ens224/ipv4adress'
