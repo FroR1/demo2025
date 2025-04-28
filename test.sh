@@ -1,125 +1,125 @@
 #!/bin/bash
 
-# Функция для вывода инструкций
-show_usage() {
-    echo "Использование: $0"
-    echo "Скрипт запросит у вас информацию о сетевых интерфейсах и настройках."
-    echo "Пожалуйста, следуйте инструкциям на экране."
+# Funktsiya dlya vyvoda instruktsiy po ispolzovaniyu
+usage() {
+    echo "Ispolzovanie: $0 <interfeys1> <interfeys2> <interfeys3> <ip_addr_int2> <ip_addr_int3> <imya_khosta>"
+    echo "Primer: $0 eth0 eth1 eth2 192.168.1.1/24 192.168.2.1/24 moykhost"
+    echo "Opisanie peremennykh:"
+    echo "  interfeys1  - Imya pervogo interfeysa (obychno dlya DHCP)"
+    echo "  interfeys2  - Imya vtorogo interfeysa"
+    echo "  interfeys3  - Imya tretego interfeysa"
+    echo "  ip_addr_int2 - IP-adres i maska vtorogo interfeysa (naprimer, 192.168.1.1/24)"
+    echo "  ip_addr_int3 - IP-adres i maska tretego interfeysa (naprimer, 192.168.2.1/24)"
+    echo "  imya_khosta - Imya khosta"
+    exit 1
 }
 
-# Функция для проверки ввода данных
+# Funktsiya proverki korrektnosti vkhodnykh dannykh
 validate_input() {
-    if [[ -z "$1" ]]; then
-        echo "Ошибка: Поле не может быть пустым. Пожалуйста, повторите ввод."
-        return 1
+    local int1=$1
+    local int2=$2
+    local int3=$3
+    local ip2=$4
+    local ip3=$5
+    local hostname=$6
+
+    # Proverka kolichestva argumentov
+    if [ $# -lt 6 ]; then
+        echo "Oshibka: nedostatochno argumentov."
+        usage
     fi
-    return 0
+
+    # Proverka, chto interfeysy ne pustye
+    for int in "$int1" "$int2" "$int3"; do
+        if [ -z "$int" ]; then
+            echo "Oshibka: imya interfeysa ne mozhet byt pustym."
+            usage
+        fi
+    done
+
+    # Proverka formata IP-adresov (prostaya proverka na nalichie / i tsifr)
+    for ip in "$ip2" "$ip3"; do
+        if ! echo "$ip" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$'; then
+            echo "Oshibka: IP-adres $ip imeet nevernyy format (ozhidaetsya, naprimer, 192.168.1.1/24)."
+            usage
+        fi
+    done
+
+    # Proverka imeni khosta (ne pustoe i soderzhit tolko dopustimye simvoly)
+    if ! echo "$hostname" | grep -qE '^[a-zA-Z0-9-]+$'; then
+        echo "Oshibka: imya khosta $hostname soderzhit nedopustimye simvoly ili pustoe."
+        usage
+    fi
+
+    echo "Vse vkhodnye dannye korrektny:"
+    echo "  interfeys1: $int1"
+    echo "  interfeys2: $int2"
+    echo "  interfeys3: $int3"
+    echo "  ip_addr_int2: $ip2"
+    echo "  ip_addr_int3: $ip3"
+    echo "  imya_khosta: $hostname"
 }
 
-# Основной скрипт
-main() {
-    # Выводим инструкции
-    show_usage
+# Osnovnoy skript
+# Prisvaivanie peremennykh
+isp_int1="$1"
+isp_int2="$2"
+isp_int3="$3"
+isp_ip_int2="$4"
+isp_ip_int3="$5"
+isp_hostname="$6"
 
-    # Запрашиваем данные у пользователя
-    read -p "Введите имя первого интерфейса (DHCP): " isp_int1
-    while ! validate_input "$isp_int1"; do
-        read -p "Введите имя первого интерфейса (DHCP): " isp_int1
-    done
+# Proverka vkhodnykh dannykh
+validate_input "$isp_int1" "$isp_int2" "$isp_int3" "$isp_ip_int2" "$isp_ip_int3" "$isp_hostname"
 
-    read -p "Введите имя второго интерфейса: " isp_int2
-    while ! validate_input "$isp_int2"; do
-        read -p "Введите имя второго интерфейса: " isp_int2
-    done
+# Vychislenie adresov i masok
+addr2=$(echo "$isp_ip_int2" | awk -F/ '{print $1}' | sed 's/\.[0-9]\+$/.0/')
+mask2=$(echo "$isp_ip_int2" | awk -F/ '{print $2}')
+net_int2="$addr2/$mask2"
 
-    read -p "Введите имя третьего интерфейса: " isp_int3
-    while ! validate_input "$isp_int3"; do
-        read -p "Введите имя третьего интерфейса: " isp_int3
-    done
+addr3=$(echo "$isp_ip_int3" | awk -F/ '{print $1}' | sed 's/\.[0-9]\+$/.0/')
+mask3=$(echo "$isp_ip_int3" | awk -F/ '{print $2}')
+net_int3="$addr3/$mask3"
 
-    read -p "Введите IP-адрес с маской для второго интерфейса (например, 192.168.1.1/24): " isp_ip_int2
-    while ! validate_input "$isp_ip_int2"; do
-        read -p "Введите IP-адрес с маской для второго интерфейса (например, 192.168.1.1/24): " isp_ip_int2
-    done
+# Nastroyka interfeysov
+echo "Nastroyka interfeysa"
+mkdir -p "/etc/net/ifaces/$isp_int2"
+mkdir -p "/etc/net/ifaces/$isp_int3"
 
-    read -p "Введите IP-адрес с маской для третьего интерфейса (например, 192.168.2.1/24): " isp_ip_int3
-    while ! validate_input "$isp_ip_int3"; do
-        read -p "Введите IP-адрес с маской для третьего интерфейса (например, 192.168.2.1/24): " isp_ip_int3
-    done
-
-    read -p "Введите имя хоста (например, myserver): " isp_hostname
-    while ! validate_input "$isp_hostname"; do
-        read -p "Введите имя хоста (например, myserver): " isp_hostname
-    done
-
-    # Подтверждение ввода
-    echo "Вы ввели следующие данные:"
-    echo "Первый интерфейс (DHCP): $isp_int1"
-    echo "Второй интерфейс: $isp_int2"
-    echo "Третий интерфейс: $isp_int3"
-    echo "IP-адрес второго интерфейса: $isp_ip_int2"
-    echo "IP-адрес третьего интерфейса: $isp_ip_int3"
-    echo "Имя хоста: $isp_hostname"
-
-    read -p "Все верно? (y/n): " confirm
-    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-        echo "Скрипт завершен. Повторите попытку."
-        exit 1
-    fi
-
-    # Выполняем основную логику скрипта
-    echo "Начинаем настройку системы..."
-
-    # Вычисляем сети для интерфейсов
-    addr2=$(echo "$isp_ip_int2" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
-    mask2=$(echo "$isp_ip_int2" | awk -F/ '{ print $2 }')
-    net_int2="$addr2/$mask2"
-
-    addr3=$(echo "$isp_ip_int3" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
-    mask3=$(echo "$isp_ip_int3" | awk -F/ '{ print $2 }')
-    net_int3="$addr3/$mask3"
-
-    # Настройка интерфейсов
-    mkdir -p /etc/net/ifaces/$isp_int2
-    mkdir -p /etc/net/ifaces/$isp_int3
-
-    echo "BOOTPROTO=static
+cat << EOF > "/etc/net/ifaces/$isp_int2/options"
+BOOTPROTO=static
 TYPE=eth
 DISABLED=no
 CONFIG_IPV4=yes
-" > /etc/net/ifaces/$isp_int2/options
+EOF
 
-    cp /etc/net/ifaces/$isp_int2/options /etc/net/ifaces/$isp_int3/options
+cp "/etc/net/ifaces/$isp_int2/options" "/etc/net/ifaces/$isp_int3/options"
+echo "$isp_ip_int2" > "/etc/net/ifaces/$isp_int2/ipv4address"
+echo "$isp_ip_int3" > "/etc/net/ifaces/$isp_int3/ipv4address"
 
-    echo "$isp_ip_int2" > /etc/net/ifaces/$isp_int2/ipv4address
-    echo "$isp_ip_int3" > /etc/net/ifaces/$isp_int3/ipv4address
+systemctl restart network && apt-get update
 
-    systemctl restart network && apt-get update
+# Nastroyka vremeni i imeni khosta
+echo "Vremya i imya khosta"
+echo "$isp_hostname" > /etc/hostname
+apt-get install -y tzdata && timedatectl set-timezone Asia/Novosibirsk
 
-    # Настройка времени и имени хоста
-    echo "$isp_hostname" > /etc/hostname
-    apt-get install -y tzdata && timedatectl set-timezone Asia/Novosibirsk
+# Nastroyka nftables
+echo "Nastroyka nftables"
+sed -i 's/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/' /etc/sysctl.conf
+apt-get update && apt-get install -y nftables
+systemctl enable --now nftables
 
-    # Настройка Nftables
-    sed -i "s/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/" /etc/net/sysctl.conf
+nft add table ip nat
+nft add chain ip nat postrouting '{ type nat hook postrouting priority 0 ; }'
+nft add rule ip nat postrouting ip saddr "$net_int2" oifname "$isp_int1" counter masquerade
+nft add rule ip nat postrouting ip saddr "$net_int3" oifname "$isp_int1" counter masquerade
+nft list ruleset | tail -n7 | tee -a /etc/nftables/nftables.nft
 
-    apt-get update && apt-get install -y nftables
-    systemctl enable --now nftables
+systemctl restart nftables && systemctl restart network
 
-    nft add table ip nat
-    nft add chain ip nat postrouting '{ type nat hook postrouting priority 0; }'
-    nft add rule ip nat postrouting ip saddr $net_int2 oifname "$isp_int1" counter masquerade
-    nft add rule ip nat postrouting ip saddr $net_int3 oifname "$isp_int1" counter masquerade
+# Proverka
+echo "Interfeysy, nftables, chasovoy poyas, imya khosta nastroeny"
+ping -c3 77.88.8.8 && nft list ruleset
 
-    nft list ruleset | tail -n7 | tee -a /etc/nftables/nftables.nft
-    systemctl restart nftables && systemctl restart network
-
-    # Проверка работы
-    ping -c3 77.88.8.8 && nft list ruleset
-
-    echo "Настройка завершена!"
-    exit 0
-}
-
-# Запуск основного скрипта
-main
+exit 0
