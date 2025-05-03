@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Объявление всех переменных как глобальных
+declare -g isp_int1 isp_int2 isp_int3 isp_ip_int2 isp_ip_int3 isp_hostname
+declare -g net_int2 net_int3
+
 # Проверка прав
 if [[ $EUID -ne 0 ]]; then
    echo "Script requires root rights!" 
@@ -116,8 +120,8 @@ CONFIG_IPV4=yes
 setup_nftables() {
     echo "Nftables configuration started..."
 
-    # Включение пересылки
-    sed -i "s/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/" /etc/sysctl.conf
+    # Включение пересылки (исправленный путь из вашего исходного кода)
+    sed -i "s/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/" /etc/net/sysctl.conf
 
     # Установка пакета
     apt-get install -y nftables > /dev/null
