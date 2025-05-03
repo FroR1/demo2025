@@ -1,32 +1,28 @@
 #!/bin/bash
 
-# Объявление всех переменных как глобальных
-declare -g isp_int1 isp_int2 isp_int3 isp_ip_int2 isp_ip_int3 isp_hostname
-declare -g net_int2 net_int3
-
 # Проверка прав
 if [[ $EUID -ne 0 ]]; then
-   echo "Script requires root rights!" 
+   echo "Скрипт требует права root!" 
    exit 1
 fi
 
 # Функция отображения меню
 show_menu() {
     clear
-    echo "System configuration menu:"
-    echo "1. Enter interface data"
-    echo "2. Configure network interfaces"
-    echo "3. Setup Nftables"
-    echo "4. Finalize configuration"
-    echo "0. Exit"
+    echo "Меню настройки системы:"
+    echo "1. Ввести данные интерфейсов"
+    echo "2. Настроить сетевые интерфейсы"
+    echo "3. Настроить Nftables"
+    echo "4. Завершить конфигурацию"
+    echo "0. Выход"
     echo
-    read -p "Choose option: " choice
+    read -p "Выберите пункт: " choice
 }
 
 # Функция валидации ввода
 validate_input() {
     if [[ -z "$1" ]]; then
-        echo "Field cannot be empty. Input again."
+        echo "Ошибка: Поле не может быть пустым. Попробуйте снова."
         return 1
     fi
     return 0
@@ -35,75 +31,66 @@ validate_input() {
 # Функция сбора данных
 collect_user_data() {
     # Сбор данных интерфейсов
-    read -p "Input first interface name (DHCP): " isp_int1
+    read -p "Введите имя первого интерфейса (DHCP): " isp_int1
     while ! validate_input "$isp_int1"; do
-        read -p "Input first interface name (DHCP): " isp_int1
+        read -p "Введите имя первого интерфейса (DHCP): " isp_int1
     done
 
-    read -p "Input second interface name: " isp_int2
+    read -p "Введите имя второго интерфейса: " isp_int2
     while ! validate_input "$isp_int2"; do
-        read -p "Input second interface name: " isp_int2
+        read -p "Введите имя второго интерфейса: " isp_int2
     done
 
-    read -p "Input third interface name: " isp_int3
+    read -p "Введите имя третьего интерфейса: " isp_int3
     while ! validate_input "$isp_int3"; do
-        read -p "Input third interface name: " isp_int3
+        read -p "Введите имя третьего интерфейса: " isp_int3
     done
 
-    read -p "Input IP with mask for second interface (e.g., 192.168.1.1/24): " isp_ip_int2
+    read -p "Введите IP с маской для второго интерфейса (например, 192.168.1.1/24): " isp_ip_int2
     while ! validate_input "$isp_ip_int2"; do
-        read -p "Input IP with mask for second interface: " isp_ip_int2
+        read -p "Введите IP с маской для второго интерфейса: " isp_ip_int2
     done
 
-    read -p "Input IP with mask for third interface (e.g., 192.168.2.1/24): " isp_ip_int3
+    read -p "Введите IP с маской для третьего интерфейса (например, 192.168.2.1/24): " isp_ip_int3
     while ! validate_input "$isp_ip_int3"; do
-        read -p "Input IP with mask for third interface: " isp_ip_int3
+        read -p "Введите IP с маской для третьего интерфейса: " isp_ip_int3
     done
 
-    read -p "Input hostname (e.g., myserver): " isp_hostname
+    read -p "Введите hostname (например, myserver): " isp_hostname
     while ! validate_input "$isp_hostname"; do
-        read -p "Input hostname: " isp_hostname
+        read -p "Введите hostname: " isp_hostname
     done
 
     # Подтверждение введенных данных
-    echo -e "\nEntered data:"
-    echo "First interface (DHCP): $isp_int1"
-    echo "Second interface: $isp_int2"
-    echo "Third interface: $isp_int3"
-    echo "Second interface IP: $isp_ip_int2"
-    echo "Third interface IP: $isp_ip_int3"
+    echo -e "\nВведены следующие данные:"
+    echo "Первый интерфейс (DHCP): $isp_int1"
+    echo "Второй интерфейс: $isp_int2"
+    echo "Третий интерфейс: $isp_int3"
+    echo "IP второго интерфейса: $isp_ip_int2"
+    echo "IP третьего интерфейса: $isp_ip_int3"
     echo "Hostname: $isp_hostname"
 
-    read -p "Data correct? (y/n): " confirm
+    read -p "Все верно? (y/n): " confirm
     if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-        echo "Script terminated. Input again."
+        echo "Скрипт завершен. Попробуйте снова."
         exit 1
     fi
 
-    echo "Data saved"
+    echo "Данные сохранены"
 }
 
 # Функция настройки интерфейсов
 configure_interfaces() {
-    echo "Network interfaces configuration started..."
+    echo "Начало настройки сетевых интерфейсов..."
 
-    # ИСПРАВЛЕННЫЙ РАСЧЕТ СЕТЕЙ (обнуление только последнего октета)
-    # Пример: 192.168.10.1/16 → 192.168.10.0/16
-    # Пример: 192.168.1.1/24 → 192.168.1.0/24
-    # Пример: 10.0.5.254/24 → 10.0.5.0/24
+    # Расчет сетей
+    addr2=$(echo "$isp_ip_int2" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
+    mask2=$(echo "$isp_ip_int2" | awk -F/ '{ print $2 }')
+    net_int2="$addr2/$mask2"
 
-    # Для второго интерфейса
-    ip_part2=$(echo "$isp_ip_int2" | awk -F/ '{print $1}')
-    mask_part2=$(echo "$isp_ip_int2" | awk -F/ '{print $2}')
-    # Разбиваем IP на октеты и обнуляем последний
-    addr2=$(echo "$ip_part2" | awk -F. '{print $1 "." $2 "." $3 ".0"}')
-    net_int2="$addr2/$mask_part2"
-
-    # Для третьего интерфейса
-    ip_part3=$(echo "$isp_ip_int3" | awk -F/ '{print $1}')
-    mask_part3=$(echo "$isp_ip_int3" | awk -F/ '{print $2}')
-    addr3=$(echo "$ip_part3" | awk -F. '{print $1 "." $2 "." $3 ".0"}')
-    net_int3="$addr3/$mask_part3"
+    addr3=$(echo "$isp_ip_int3" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
+    mask3=$(echo "$isp_ip_int3" | awk -F/ '{ print $2 }')
+    net_int3="$addr3/$mask3"
 
     # Создание конфигов
     mkdir -p "/etc/net/ifaces/$isp_int2" "/etc/net/ifaces/$isp_int3"
@@ -122,15 +109,15 @@ CONFIG_IPV4=yes
     systemctl restart network
     apt-get update > /dev/null
 
-    echo "Interfaces configured"
+    echo "Настройка интерфейсов завершена"
 }
 
 # Функция настройки Nftables
 setup_nftables() {
-    echo "Nftables configuration started..."
+    echo "Начало настройки Nftables..."
 
-    # Включение пересылки (исправленный путь из вашего исходного кода)
-    sed -i "s/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/" /etc/net/sysctl.conf
+    # Включение пересылки
+    sed -i "s/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/" /etc/sysctl.conf
 
     # Установка пакета
     apt-get install -y nftables > /dev/null
@@ -142,12 +129,12 @@ setup_nftables() {
     nft add rule ip nat postrouting ip saddr $net_int2 oifname "$isp_int1" counter masquerade
     nft add rule ip nat postrouting ip saddr $net_int3 oifname "$isp_int1" counter masquerade
 
-    echo "Nftables configured"
+    echo "Nftables настроен"
 }
 
 # Функция завершения конфигурации
 finalize_configuration() {
-    echo "Final steps started..."
+    echo "Финальные шаги..."
 
     # Настройка hostname
     echo "$isp_hostname" > /etc/hostname
@@ -160,15 +147,15 @@ finalize_configuration() {
     systemctl restart nftables network
 
     # Проверка
-    ping -c3 77.88.8.8 > /dev/null && echo "Internet connection works"
+    ping -c3 77.88.8.8 > /dev/null && echo "Подключение к интернету работает"
     nft list ruleset > /tmp/nft_config.txt
 
-    echo "Configuration completed!"
+    echo "Конфигурация завершена!"
 }
 
 # Функция выхода
 exit_script() {
-    echo "Exit requested..."
+    echo "Выход из скрипта..."
     exit 0
 }
 
@@ -193,7 +180,7 @@ while true; do
             exit_script
             ;;
         *)
-            echo "Incorrect choice. Input again."
+            echo "Неверный выбор. Попробуйте снова."
             sleep 1
             ;;
     esac
