@@ -117,7 +117,7 @@ setup_nftables() {
     echo "Начало настройки Nftables..."
 
     # Включение пересылки
-    sed -i "s/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/" /etc/sysctl.conf
+    sed -i "s/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/" /etc/net/sysctl.conf
 
     # Установка пакета
     apt-get install -y nftables > /dev/null
