@@ -87,14 +87,23 @@ collect_user_data() {
 configure_interfaces() {
     echo "Network interfaces configuration started..."
 
-    # Расчет сетей
-    addr2=$(echo "$isp_ip_int2" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
-    mask2=$(echo "$isp_ip_int2" | awk -F/ '{ print $2 }')
-    net_int2="$addr2/$mask2"
+    # ИСПРАВЛЕННЫЙ РАСЧЕТ СЕТЕЙ (обнуление только последнего октета)
+    # Пример: 192.168.10.1/16 → 192.168.10.0/16
+    # Пример: 192.168.1.1/24 → 192.168.1.0/24
+    # Пример: 10.0.5.254/24 → 10.0.5.0/24
 
-    addr3=$(echo "$isp_ip_int3" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
-    mask3=$(echo "$isp_ip_int3" | awk -F/ '{ print $2 }')
-    net_int3="$addr3/$mask3"
+    # Для второго интерфейса
+    ip_part2=$(echo "$isp_ip_int2" | awk -F/ '{print $1}')
+    mask_part2=$(echo "$isp_ip_int2" | awk -F/ '{print $2}')
+    # Разбиваем IP на октеты и обнуляем последний
+    addr2=$(echo "$ip_part2" | awk -F. '{print $1 "." $2 "." $3 ".0"}')
+    net_int2="$addr2/$mask_part2"
+
+    # Для третьего интерфейса
+    ip_part3=$(echo "$isp_ip_int3" | awk -F/ '{print $1}')
+    mask_part3=$(echo "$isp_ip_int3" | awk -F/ '{print $2}')
+    addr3=$(echo "$ip_part3" | awk -F. '{print $1 "." $2 "." $3 ".0"}')
+    net_int3="$addr3/$mask_part3"
 
     # Создание конфигов
     mkdir -p "/etc/net/ifaces/$isp_int2" "/etc/net/ifaces/$isp_int3"
