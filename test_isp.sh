@@ -54,14 +54,16 @@ collect_data() {
         read -p "Enter hostname (e.g., myserver): " isp_hostname
     done
 
-    # Calculate networks
-    addr2=$(echo "$isp_ip_int2" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
-    mask2=$(echo "$isp_ip_int2" | awk -F/ '{ print $2 }')
-    net_int2="$addr2/$mask2"
+    # Correct network calculation using awk
+    addr2=$(echo "$isp_ip_int2" | awk -F/ '{print $1}')
+    net_ip2=$(echo $addr2 | awk -F. '{print $1"."$2"."$3".0"}')
+    mask2=$(echo "$isp_ip_int2" | awk -F/ '{print $2}')
+    net_int2="$net_ip2/$mask2"
 
-    addr3=$(echo "$isp_ip_int3" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
-    mask3=$(echo "$isp_ip_int3" | awk -F/ '{ print $2 }')
-    net_int3="$addr3/$mask3"
+    addr3=$(echo "$isp_ip_int3" | awk -F/ '{print $1}')
+    net_ip3=$(echo $addr3 | awk -F. '{print $1"."$2"."$3".0"}')
+    mask3=$(echo "$isp_ip_int3" | awk -F/ '{print $2}')
+    net_int3="$net_ip3/$mask3"
 
     # Confirmation
     echo "You entered:"
@@ -71,6 +73,9 @@ collect_data() {
     echo "Second interface IP: $isp_ip_int2"
     echo "Third interface IP: $isp_ip_int3"
     echo "Hostname: $isp_hostname"
+    echo "Calculated networks:"
+    echo "Second interface network: $net_int2"
+    echo "Third interface network: $net_int3"
 
     read -p "Proceed with these settings? (y/n): " confirm
     if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
@@ -140,7 +145,6 @@ check_function() {
 
 # Menu display function
 show_menu() {
-    clear
     echo "Menu:"
     echo "1. Collect configuration data"
     echo "2. Configure network interfaces"
