@@ -1,89 +1,60 @@
 #!/bin/bash
 
-# Проверка прав
-if [[ $EUID -ne 0 ]]; then
-   echo "Script requires root rights!" 
-   exit 1
-fi
+# Global variable declarations
+declare -g isp_int1 isp_int2 isp_int3 isp_ip_int2 isp_ip_int3 isp_hostname
+declare -g net_int2 net_int3
 
-# Функция отображения меню
-show_menu() {
-    clear
-    echo "System configuration menu:"
-    echo "1. Enter interface data"
-    echo "2. Configure network interfaces"
-    echo "3. Setup Nftables"
-    echo "4. Finalize configuration"
-    echo "0. Exit"
-    echo
-    read -p "Choose option: " choice
+# Function to display usage instructions
+show_usage() {
+    echo "Usage: $0"
+    echo "The script will prompt you for network interface and configuration details."
+    echo "Follow the on-screen instructions."
 }
 
-# Функция валидации ввода
+# Function to validate input
 validate_input() {
     if [[ -z "$1" ]]; then
-        echo "Field cannot be empty. Input again."
+        echo "Error: Field cannot be empty. Please try again."
         return 1
     fi
     return 0
 }
 
-# Функция сбора данных
-collect_user_data() {
-    # Сбор данных интерфейсов
-    read -p "Input first interface name (DHCP): " isp_int1
+# Data collection function
+collect_data() {
+    show_usage
+
+    read -p "Enter the name of the first interface (DHCP): " isp_int1
     while ! validate_input "$isp_int1"; do
-        read -p "Input first interface name (DHCP): " isp_int1
+        read -p "Enter the name of the first interface (DHCP): " isp_int1
     done
 
-    read -p "Input second interface name: " isp_int2
+    read -p "Enter the name of the second interface: " isp_int2
     while ! validate_input "$isp_int2"; do
-        read -p "Input second interface name: " isp_int2
+        read -p "Enter the name of the second interface: " isp_int2
     done
 
-    read -p "Input third interface name: " isp_int3
+    read -p "Enter the name of the third interface: " isp_int3
     while ! validate_input "$isp_int3"; do
-        read -p "Input third interface name: " isp_int3
+        read -p "Enter the name of the third interface: " isp_int3
     done
 
-    read -p "Input IP with mask for second interface (e.g., 192.168.1.1/24): " isp_ip_int2
+    read -p "Enter IP/subnet for second interface (e.g., 192.168.1.1/24): " isp_ip_int2
     while ! validate_input "$isp_ip_int2"; do
-        read -p "Input IP with mask for second interface: " isp_ip_int2
+        read -p "Enter IP/subnet for second interface (e.g., 192.168.1.1/24): " isp_ip_int2
     done
 
-    read -p "Input IP with mask for third interface (e.g., 192.168.2.1/24): " isp_ip_int3
+    read -p "Enter IP/subnet for third interface (e.g., 192.168.2.1/24): " isp_ip_int3
     while ! validate_input "$isp_ip_int3"; do
-        read -p "Input IP with mask for third interface: " isp_ip_int3
+        read -p "Enter IP/subnet for third interface (e.g., 192.168.2.1/24): " isp_ip_int3
     done
 
-    read -p "Input hostname (e.g., myserver): " isp_hostname
+    read -p "Enter hostname (e.g., myserver): " isp_hostname
     while ! validate_input "$isp_hostname"; do
-        read -p "Input hostname: " isp_hostname
+        read -p "Enter hostname (e.g., myserver): " isp_hostname
     done
 
-    # Подтверждение введенных данных
-    echo -e "\nEntered data:"
-    echo "First interface (DHCP): $isp_int1"
-    echo "Second interface: $isp_int2"
-    echo "Third interface: $isp_int3"
-    echo "Second interface IP: $isp_ip_int2"
-    echo "Third interface IP: $isp_ip_int3"
-    echo "Hostname: $isp_hostname"
-
-    read -p "Data correct? (y/n): " confirm
-    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-        echo "Script terminated. Input again."
-        exit 1
-    fi
-
-    echo "Data saved"
-}
-
-# Функция настройки интерфейсов
-configure_interfaces() {
-    echo "Network interfaces configuration started..."
-
-    # Расчет сетей
+    # Calculate networks
     addr2=$(echo "$isp_ip_int2" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
     mask2=$(echo "$isp_ip_int2" | awk -F/ '{ print $2 }')
     net_int2="$addr2/$mask2"
@@ -92,96 +63,107 @@ configure_interfaces() {
     mask3=$(echo "$isp_ip_int3" | awk -F/ '{ print $2 }')
     net_int3="$addr3/$mask3"
 
-    # Создание конфигов
-    mkdir -p "/etc/net/ifaces/$isp_int2" "/etc/net/ifaces/$isp_int3"
+    # Confirmation
+    echo "You entered:"
+    echo "First interface (DHCP): $isp_int1"
+    echo "Second interface: $isp_int2"
+    echo "Third interface: $isp_int3"
+    echo "Second interface IP: $isp_ip_int2"
+    echo "Third interface IP: $isp_ip_int3"
+    echo "Hostname: $isp_hostname"
 
-    echo "BOOTPROTO=static
+    read -p "Proceed with these settings? (y/n): " confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        echo "Aborting configuration"
+        exit 1
+    fi
+}
+
+# Interface configuration function
+configure_interfaces() {
+    if [[ -z "$isp_int2" || -z "$isp_ip_int2" ]]; then
+        echo "Error: Please collect data first (option 1)"
+        return
+    fi
+
+    echo "Configuring network interfaces..."
+
+    mkdir -p "/etc/net/ifaces/$isp_int2"
+    mkdir -p "/etc/net/ifaces/$isp_int3"
+
+    cat <<EOF > "/etc/net/ifaces/$isp_int2/options"
+BOOTPROTO=static
 TYPE=eth
 DISABLED=no
 CONFIG_IPV4=yes
-" > "/etc/net/ifaces/$isp_int2/options"
-    
+EOF
+
     cp "/etc/net/ifaces/$isp_int2/options" "/etc/net/ifaces/$isp_int3/options"
 
     echo "$isp_ip_int2" > "/etc/net/ifaces/$isp_int2/ipv4address"
     echo "$isp_ip_int3" > "/etc/net/ifaces/$isp_int3/ipv4address"
 
-    systemctl restart network
-    apt-get update > /dev/null
-
-    echo "Interfaces configured"
+    systemctl restart network && apt-get update
 }
 
-# Функция настройки Nftables
-setup_nftables() {
-    echo "Nftables configuration started..."
+# Time and hostname configuration
+configure_time() {
+    echo "$isp_hostname" > /etc/hostname
+    apt-get install -y tzdata && timedatectl set-timezone Asia/Novosibirsk
+}
 
-    # Включение пересылки
-    sed -i "s/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/" /etc/net/sysctl.conf
+# Nftables configuration function
+configure_nftables() {
+    if [[ -z "$net_int2" || -z "$net_int3" ]]; then
+        echo "Error: Please collect data first (option 1)"
+        return
+    fi
 
-    # Установка пакета
-    apt-get install -y nftables > /dev/null
+    sed -i 's/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/' /etc/net/sysctl.conf
+
+    apt-get update && apt-get install -y nftables
     systemctl enable --now nftables
 
-    # Создание правил
     nft add table ip nat
     nft add chain ip nat postrouting '{ type nat hook postrouting priority 0; }'
-    nft add rule ip nat postrouting ip saddr $net_int2 oifname "$isp_int1" counter masquerade
-    nft add rule ip nat postrouting ip saddr $net_int3 oifname "$isp_int1" counter masquerade
+    nft add rule ip nat postrouting ip saddr "$net_int2" oifname "$isp_int1" counter masquerade
+    nft add rule ip nat postrouting ip saddr "$net_int3" oifname "$isp_int1" counter masquerade
 
-    echo "Nftables configured"
+    nft list ruleset | tail -n7 | tee -a /etc/nftables/nftables.nft
+    systemctl restart nftables && systemctl restart network
 }
 
-# Функция завершения конфигурации
-finalize_configuration() {
-    echo "Final steps started..."
-
-    # Настройка hostname
-    echo "$isp_hostname" > /etc/hostname
-
-    # Установка часового пояса
-    apt-get install -y tzdata > /dev/null
-    timedatectl set-timezone Asia/Novosibirsk
-
-    # Перезагрузка служб
-    systemctl restart nftables network
-
-    # Проверка
-    ping -c3 77.88.8.8 > /dev/null && echo "Internet connection works"
-    nft list ruleset > /tmp/nft_config.txt
-
-    echo "Configuration completed!"
+# Function to check functionality
+check_function() {
+    ping -c3 77.88.8.8 && nft list ruleset
 }
 
-# Функция выхода
-exit_script() {
-    echo "Exit requested..."
-    exit 0
-}
-
-# Основной цикл меню
-while true; do
-    show_menu
-
-    case "$choice" in
-        1)
-            collect_user_data
-            ;;
-        2)
-            configure_interfaces
-            ;;
-        3)
-            setup_nftables
-            ;;
-        4)
-            finalize_configuration
-            ;;
-        0)
-            exit_script
-            ;;
-        *)
-            echo "Incorrect choice. Input again."
-            sleep 1
-            ;;
+# Menu display function
+show_menu() {
+    echo "Menu:"
+    echo "1. Collect configuration data"
+    echo "2. Configure network interfaces"
+    echo "3. Configure hostname and timezone"
+    echo "4. Configure Nftables"
+    echo "5. Check configuration"
+    echo "0. Exit"
+    read -p "Select an option: " choice
+    case $choice in
+        1) collect_data ;;
+        2) configure_interfaces ;;
+        3) configure_time ;;
+        4) configure_nftables ;;
+        5) check_function ;;
+        0) exit 0 ;;
+        *) echo "Invalid choice" ;;
     esac
-done
+}
+
+# Main execution loop
+main() {
+    while true; do
+        show_menu
+    done
+}
+
+main
