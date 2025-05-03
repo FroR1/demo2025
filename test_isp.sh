@@ -140,6 +140,7 @@ check_function() {
 
 # Menu display function
 show_menu() {
+    clear
     echo "Menu:"
     echo "1. Collect configuration data"
     echo "2. Configure network interfaces"
