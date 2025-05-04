@@ -1,17 +1,17 @@
 #!/bin/bash
 
-# Объявление глобальных переменных
+# Global variable declarations
 declare -g isp_int1 isp_int2 isp_int3 isp_ip_int2 isp_ip_int3 isp_hostname
-declare -g net_masq2 net_masq3
+declare -g net_int2 net_int3
 
-# Функция отображения инструкций
+# Function to display usage instructions
 show_usage() {
     echo "Usage: $0"
-    echo "Скрипт запросит данные о сетевых интерфейсах и настройках."
-    echo "Следуйте инструкциям на экране."
+    echo "The script will prompt you for network interface and configuration details."
+    echo "Follow the on-screen instructions."
 }
 
-# Функция проверки ввода
+# Function to validate input
 validate_input() {
     if [[ -z "$1" ]]; then
         echo "Error: Field cannot be empty. Please try again."
@@ -20,7 +20,54 @@ validate_input() {
     return 0
 }
 
-# Функция сбора данных
+# Network calculation function
+calculate_network() {
+    local ip="$1"
+    local mask="$2"
+    
+    IFS='.' read -r a b c d <<< "$ip"
+    
+    local bits=$((mask))
+    local network_a network_b network_c network_d
+    
+    # Process first octet (8 bits)
+    if (( bits >= 8 )); then
+        network_a=$((a))
+        bits=$((bits - 8))
+    else
+        network_a=$((a & (255 << (8 - bits))))
+        bits=0
+    fi
+    
+    # Second octet
+    if (( bits >= 8 )); then
+        network_b=$((b))
+        bits=$((bits - 8))
+    else
+        network_b=$((b & (255 << (8 - bits))))
+        bits=0
+    fi
+    
+    # Third octet
+    if (( bits >= 8 )); then
+        network_c=$((c))
+        bits=$((bits - 8))
+    else
+        network_c=$((c & (255 << (8 - bits))))
+        bits=0
+    fi
+    
+    # Fourth octet
+    if (( bits > 0 )); then
+        network_d=$((d & (255 << (8 - bits))))
+    else
+        network_d=0
+    fi
+    
+    echo "$network_a.$network_b.$network_c.$network_d"
+}
+
+# Data collection function
 collect_data() {
     show_usage
 
@@ -49,32 +96,33 @@ collect_data() {
         read -p "Enter IP/subnet for third interface (e.g., 192.168.2.1/24): " isp_ip_int3
     done
 
-    # Новые поля ввода для маскарада
-    read -p "Enter network for masquerade (second interface, e.g., 192.168.1.0/24): " net_masq2
-    while ! validate_input "$net_masq2"; do
-        read -p "Enter network for masquerade (second interface, e.g., 192.168.1.0/24): " net_masq2
-    done
-
-    read -p "Enter network for masquerade (third interface, e.g., 192.168.2.0/24): " net_masq3
-    while ! validate_input "$net_masq3"; do
-        read -p "Enter network for masquerade (third interface, e.g., 192.168.2.0/24): " net_masq3
-    done
-
     read -p "Enter hostname (e.g., myserver): " isp_hostname
     while ! validate_input "$isp_hostname"; do
         read -p "Enter hostname (e.g., myserver): " isp_hostname
     done
 
-    # Подтверждение данных
+    # Calculate networks using new function
+    addr2=$(echo "$isp_ip_int2" | awk -F/ '{print $1}')
+    mask2=$(echo "$isp_ip_int2" | awk -F/ '{print $2}')
+    net_ip2=$(calculate_network "$addr2" "$mask2")
+    net_int2="$net_ip2/$mask2"
+
+    addr3=$(echo "$isp_ip_int3" | awk -F/ '{print $1}')
+    mask3=$(echo "$isp_ip_int3" | awk -F/ '{print $2}')
+    net_ip3=$(calculate_network "$addr3" "$mask3")
+    net_int3="$net_ip3/$mask3"
+
+    # Confirmation
     echo "You entered:"
     echo "First interface (DHCP): $isp_int1"
     echo "Second interface: $isp_int2"
     echo "Third interface: $isp_int3"
     echo "Second interface IP: $isp_ip_int2"
     echo "Third interface IP: $isp_ip_int3"
-    echo "Masquerade network (2): $net_masq2"
-    echo "Masquerade network (3): $net_masq3"
     echo "Hostname: $isp_hostname"
+    echo "Calculated networks:"
+    echo "Second interface network: $net_int2"
+    echo "Third interface network: $net_int3"
 
     read -p "Proceed with these settings? (y/n): " confirm
     if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
@@ -83,7 +131,7 @@ collect_data() {
     fi
 }
 
-# Настройка интерфейсов
+# Interface configuration function
 configure_interfaces() {
     if [[ -z "$isp_int2" || -z "$isp_ip_int2" ]]; then
         echo "Error: Please collect data first (option 1)"
@@ -110,15 +158,15 @@ EOF
     systemctl restart network && apt-get update
 }
 
-# Настройка времени и hostname
+# Time and hostname configuration
 configure_time() {
     echo "$isp_hostname" > /etc/hostname
     apt-get install -y tzdata && timedatectl set-timezone Asia/Novosibirsk
 }
 
-# Настройка Nftables
+# Nftables configuration function
 configure_nftables() {
-    if [[ -z "$net_masq2" || -z "$net_masq3" ]]; then
+    if [[ -z "$net_int2" || -z "$net_int3" ]]; then
         echo "Error: Please collect data first (option 1)"
         return
     fi
@@ -130,19 +178,19 @@ configure_nftables() {
 
     nft add table ip nat
     nft add chain ip nat postrouting '{ type nat hook postrouting priority 0; }'
-    nft add rule ip nat postrouting ip saddr "$net_masq2" oifname "$isp_int1" counter masquerade
-    nft add rule ip nat postrouting ip saddr "$net_masq3" oifname "$isp_int1" counter masquerade
+    nft add rule ip nat postrouting ip saddr "$net_int2" oifname "$isp_int1" counter masquerade
+    nft add rule ip nat postrouting ip saddr "$net_int3" oifname "$isp_int1" counter masquerade
 
     nft list ruleset | tail -n7 | tee -a /etc/nftables/nftables.nft
     systemctl restart nftables && systemctl restart network
 }
 
-# Проверка работы
+# Function to check functionality
 check_function() {
     ping -c3 77.88.8.8 && nft list ruleset
 }
 
-# Меню выбора
+# Menu display function
 show_menu() {
     echo "Menu:"
     echo "1. Collect configuration data"
@@ -163,7 +211,7 @@ show_menu() {
     esac
 }
 
-# Основная функция
+# Main execution loop
 main() {
     while true; do
         show_menu
