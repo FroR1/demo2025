@@ -20,53 +20,6 @@ validate_input() {
     return 0
 }
 
-# Network calculation function
-calculate_network() {
-    local ip="$1"
-    local mask="$2"
-    
-    IFS='.' read -r a b c d <<< "$ip"
-    
-    local bits=$((mask))
-    local network_a network_b network_c network_d
-    
-    # Process first octet (8 bits)
-    if (( bits >= 8 )); then
-        network_a=$((a))
-        bits=$((bits - 8))
-    else
-        network_a=$((a & (255 << (8 - bits))))
-        bits=0
-    fi
-    
-    # Second octet
-    if (( bits >= 8 )); then
-        network_b=$((b))
-        bits=$((bits - 8))
-    else
-        network_b=$((b & (255 << (8 - bits))))
-        bits=0
-    fi
-    
-    # Third octet
-    if (( bits >= 8 )); then
-        network_c=$((c))
-        bits=$((bits - 8))
-    else
-        network_c=$((c & (255 << (8 - bits))))
-        bits=0
-    fi
-    
-    # Fourth octet
-    if (( bits > 0 )); then
-        network_d=$((d & (255 << (8 - bits))))
-    else
-        network_d=0
-    fi
-    
-    echo "$network_a.$network_b.$network_c.$network_d"
-}
-
 # Data collection function
 collect_data() {
     show_usage
@@ -101,16 +54,14 @@ collect_data() {
         read -p "Enter hostname (e.g., myserver): " isp_hostname
     done
 
-    # Calculate networks using new function
-    addr2=$(echo "$isp_ip_int2" | awk -F/ '{print $1}')
-    mask2=$(echo "$isp_ip_int2" | awk -F/ '{print $2}')
-    net_ip2=$(calculate_network "$addr2" "$mask2")
-    net_int2="$net_ip2/$mask2"
+    # Calculate networks
+    addr2=$(echo "$isp_ip_int2" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
+    mask2=$(echo "$isp_ip_int2" | awk -F/ '{ print $2 }')
+    net_int2="$addr2/$mask2"
 
-    addr3=$(echo "$isp_ip_int3" | awk -F/ '{print $1}')
-    mask3=$(echo "$isp_ip_int3" | awk -F/ '{print $2}')
-    net_ip3=$(calculate_network "$addr3" "$mask3")
-    net_int3="$net_ip3/$mask3"
+    addr3=$(echo "$isp_ip_int3" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
+    mask3=$(echo "$isp_ip_int3" | awk -F/ '{ print $2 }')
+    net_int3="$addr3/$mask3"
 
     # Confirmation
     echo "You entered:"
@@ -120,10 +71,10 @@ collect_data() {
     echo "Second interface IP: $isp_ip_int2"
     echo "Third interface IP: $isp_ip_int3"
     echo "Hostname: $isp_hostname"
-    echo "Calculated networks:"
-    echo "Second interface network: $net_int2"
-    echo "Third interface network: $net_int3"
+    echo "the result of the second int2 network calculation: $net_int2"
+    echo "the result of the third network calculation: $net_int3"
 
+    
     read -p "Proceed with these settings? (y/n): " confirm
     if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
         echo "Aborting configuration"
