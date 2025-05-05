@@ -107,7 +107,7 @@ EOF
     echo "$isp_ip_int3" > "/etc/net/ifaces/$isp_int3/ipv4address"
 
     # Перезапуск сетевых служб (зависит от дистрибутива)
-    systemctl restart networking || systemctl restart network
+    systemctl restart network
 }
 
 # Time and hostname configuration
