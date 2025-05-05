@@ -111,7 +111,7 @@ EOF
     echo "$isp_ip_int2" > "/etc/net/ifaces/$isp_int2/ipv4address"
     echo "$isp_ip_int3" > "/etc/net/ifaces/$isp_int3/ipv4address"
 
-    systemctl restart network && apt-get update
+    systemctl restart network
 }
 
 # Time and hostname configuration
@@ -132,6 +132,42 @@ configure_nftables() {
     apt-get update && apt-get install -y nftables
     systemctl enable --now nftables
 
+
+
+    # Создаем файл с сохранением форматирования через here-document
+    cat > /etc/nftables.nft <<'EOF'
+    {
+    #!/usr/sbin/nft -f
+    # you can find examples in /usr/share/nftables/
+    
+    table inet filter {
+        chain input {
+            type filter hook input priority 0;
+        }
+    
+        chain forward {
+            type filter hook forward priority 0;
+        }
+    
+        chain output {
+            type filter hook output priority 0;
+        }
+    }
+    
+    table ip nat {
+        chain postrouting {
+            type nat hook postrouting priority 0; policy accept;
+            ip saddr 192.168.0.0/16 oifname "ens192" counter packets 0 bytes 0 masquerade
+        }
+    }
+
+
+    }
+    EOF
+
+
+    
+    
     nft add table ip nat
     nft add chain ip nat postrouting '{ type nat hook postrouting priority 0; }'
     nft add rule ip nat postrouting ip saddr "$net_int2" oifname "$isp_int1" counter masquerade
