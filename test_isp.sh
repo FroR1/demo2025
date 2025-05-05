@@ -135,7 +135,7 @@ configure_nftables() {
 
 
     # Создаем файл с сохранением форматирования через here-document
-    cat > /etc/nftables.nft <<'EOF'
+    cat > /etc/nftables/nftables.nft <<'EOF'
     {
     #!/usr/sbin/nft -f
     # you can find examples in /usr/share/nftables/
@@ -157,7 +157,8 @@ configure_nftables() {
     table ip nat {
         chain postrouting {
             type nat hook postrouting priority 0; policy accept;
-            ip saddr 192.168.0.0/16 oifname "ens192" counter packets 0 bytes 0 masquerade
+            ip saddr "$net_int2" oifname "$isp_int1" counter packets 0 bytes 0 masquerade
+            ip saddr "$net_int3" oifname "$isp_int1" counter packets 0 bytes 0 masquerade
         }
     }
 
@@ -165,15 +166,6 @@ configure_nftables() {
     }
     EOF
 
-
-    
-    
-    nft add table ip nat
-    nft add chain ip nat postrouting '{ type nat hook postrouting priority 0; }'
-    nft add rule ip nat postrouting ip saddr "$net_int2" oifname "$isp_int1" counter masquerade
-    nft add rule ip nat postrouting ip saddr "$net_int3" oifname "$isp_int1" counter masquerade
-
-    nft list ruleset | tail -n7 | tee -a /etc/nftables/nftables.nft
     systemctl restart nftables && systemctl restart network
 }
 
