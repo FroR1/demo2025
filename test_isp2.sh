@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bash
 
 # Global variable declarations
 declare -g isp_int1 isp_int2 isp_int3 isp_ip_int2 isp_ip_int3 isp_hostname
@@ -50,7 +50,7 @@ validate_interface() {
         return 1
     fi
     return 0
-
+}
 
 # Function to calculate network address
 calculate_network() {
@@ -259,10 +259,10 @@ check_function() {
 # Function to show configuration status
 show_config_status() {
     echo "Configuration Status:"
-    echo "Interfaces: ${interfaces_configured:-false}"
-    echo "Nftables: ${nftables_configured:-false}"
-    echo "Hostname: ${hostname_configured:-false}"
-    echo "Timezone: ${timezone_configured:-false}"
+    echo "Interfaces: $( [[ "$interfaces_configured" == "true" ]] && echo "yes" || echo "no" )"
+    echo "Nftables: $( [[ "$nftables_configured" == "true" ]] && echo "yes" || echo "no" )"
+    echo "Hostname: $( [[ "$hostname_configured" == "true" ]] && echo "yes" || echo "no" )"
+    echo "Timezone: $( [[ "$timezone_configured" == "true" ]] && echo "yes" || echo "no" )"
     log "Displayed configuration status"
 }
 
