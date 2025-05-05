@@ -23,7 +23,7 @@ validate_input() {
 # Data collection function
 collect_data() {
     show_usage
-    clear
+    
     read -p "Enter the name of the first interface (DHCP): " isp_int1
     while ! validate_input "$isp_int1"; do
         read -p "Enter the name of the first interface (DHCP): " isp_int1
@@ -143,6 +143,7 @@ check_function() {
 
 # Menu display function
 show_menu() {
+    clear
     echo "Menu:"
     echo "1. Collect configuration data"
     echo "2. Configure network interfaces"
