@@ -132,7 +132,7 @@ configure_nftables() {
     systemctl enable --now nftables
 
     # Исправленный here-document для nftables
-    cat > /etc/nftables.conf <<EOF
+    cat <<EOF > "/etc/nftables/nftables.nft"
 #!/usr/sbin/nft -f
 # you can find examples in /usr/share/nftables/
 
