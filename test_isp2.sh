@@ -1,4 +1,18 @@
-#!/bash
+#!/bin/bash
+
+# Ensure the script is executable
+chmod +x "$0" 2>/dev/null
+
+# Check if /bin/bash exists, fallback to /bin/sh if not
+if [ ! -f /bin/bash ]; then
+    echo "Warning: /bin/bash not found, attempting to use /bin/sh"
+    if [ -f /bin/sh ]; then
+        exec /bin/sh "$0" "$@"
+    else
+        echo "Error: No suitable shell found (/bin/bash or /bin/sh)"
+        exit 1
+    fi
+fi
 
 # Global variable declarations
 declare -g isp_int1 isp_int2 isp_int3 isp_ip_int2 isp_ip_int3 isp_hostname
