@@ -55,13 +55,18 @@ collect_data() {
     done
 
     # Calculate networks
-    addr2=$(echo "$isp_ip_int2" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
-    mask2=$(echo "$isp_ip_int2" | awk -F/ '{ print $2 }')
-    net_int2="$addr2/$mask2"
+    
+    addr2=`echo $isp_ip_int2 | awk -F/ '{ print $1 }' | sed 's/.$/0/'`
+    mask2=`echo $isp_ip_int2 | awk -F/ '{ print $2 }'`
+    net_int2=$addr2/$mask2
 
-    addr3=$(echo "$isp_ip_int3" | awk -F/ '{ print $1 }' | sed 's/.$/0/')
-    mask3=$(echo "$isp_ip_int3" | awk -F/ '{ print $2 }')
-    net_int3="$addr3/$mask3"
+    addr3=`echo $isp_ip_int3 | awk -F/ '{ print $1 }' | sed 's/.$/0/'`
+    mask3=`echo $isp_ip_int3 | awk -F/ '{ print $2 }'`
+    net_int3=$addr3/$mask3
+
+
+
+
 
     # Confirmation
     echo "You entered:"
