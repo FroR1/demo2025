@@ -219,7 +219,7 @@ configure_nftables() {
     fi
 
     # Create new nftables configuration file with masquerade rules
-    cat > /etc/nftables.nft <<EOF
+    cat > /etc/nftables/nftables.nft <<EOF
 #!/usr/sbin/nft -f
 table inet filter {
     chain input {
