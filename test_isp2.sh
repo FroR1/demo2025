@@ -212,7 +212,13 @@ configure_nftables() {
         return 1
     }
 
-    # Configure nftables rules with masquerade
+    # Explicitly remove the old nftables configuration file
+    if [ -f /etc/nftables.nft ]; then
+        rm -f /etc/nftables.nft
+        log "Removed old nftables configuration file"
+    fi
+
+    # Create new nftables configuration file with masquerade rules
     cat > /etc/nftables.nft <<EOF
 #!/usr/sbin/nft -f
 table inet filter {
@@ -234,6 +240,7 @@ table ip nat {
     }
 }
 EOF
+    log "Created new nftables configuration file"
 
     # Apply nftables rules
     nft -f /etc/nftables.nft || {
@@ -278,6 +285,13 @@ show_config_status() {
     echo "Hostname: $( [[ "$hostname_configured" == "true" ]] && echo "yes" || echo "no" )"
     echo "Timezone: $( [[ "$timezone_configured" == "true" ]] && echo "yes" || echo "no" )"
     log "Displayed configuration status"
+
+    # Prompt for return to menu
+    read -p "Enter 0 to return to menu or press Enter: " return_choice
+    if [[ "$return_choice" == "0" || -z "$return_choice" ]]; then
+        # Do nothing, return to menu automatically
+        :
+    fi
 }
 
 # Menu display function
