@@ -55,18 +55,13 @@ collect_data() {
     done
 
     # Calculate networks
-    
-    addr2=`echo $isp_ip_int2 | awk -F/ '{ print $1 }' | sed 's/.$/0/'`
-    mask2=`echo $isp_ip_int2 | awk -F/ '{ print $2 }'`
-    net_int2=$addr2/$mask2
+    addr2=$(echo $isp_ip_int2 | awk -F/ '{ print $1 }' | sed 's/.$/0/')
+    mask2=$(echo $isp_ip_int2 | awk -F/ '{ print $2 }')
+    net_int2="${addr2}/${mask2}"
 
-    addr3=`echo $isp_ip_int3 | awk -F/ '{ print $1 }' | sed 's/.$/0/'`
-    mask3=`echo $isp_ip_int3 | awk -F/ '{ print $2 }'`
-    net_int3=$addr3/$mask3
-
-
-
-
+    addr3=$(echo $isp_ip_int3 | awk -F/ '{ print $1 }' | sed 's/.$/0/')
+    mask3=$(echo $isp_ip_int3 | awk -F/ '{ print $2 }')
+    net_int3="${addr3}/${mask3}"
 
     # Confirmation
     echo "You entered:"
@@ -76,10 +71,9 @@ collect_data() {
     echo "Second interface IP: $isp_ip_int2"
     echo "Third interface IP: $isp_ip_int3"
     echo "Hostname: $isp_hostname"
-    echo "the result of the second int2 network calculation: $net_int2"
-    echo "the result of the third network calculation: $net_int3"
+    echo "Second interface network: $net_int2"
+    echo "Third interface network: $net_int3"
 
-    
     read -p "Proceed with these settings? (y/n): " confirm
     if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
         echo "Aborting configuration"
@@ -96,6 +90,7 @@ configure_interfaces() {
 
     echo "Configuring network interfaces..."
 
+    # Создаём директории для сетевых интерфейсов (проверьте корректность пути)
     mkdir -p "/etc/net/ifaces/$isp_int2"
     mkdir -p "/etc/net/ifaces/$isp_int3"
 
@@ -111,13 +106,15 @@ EOF
     echo "$isp_ip_int2" > "/etc/net/ifaces/$isp_int2/ipv4address"
     echo "$isp_ip_int3" > "/etc/net/ifaces/$isp_int3/ipv4address"
 
-    systemctl restart network
+    # Перезапуск сетевых служб (зависит от дистрибутива)
+    systemctl restart networking || systemctl restart network
 }
 
 # Time and hostname configuration
 configure_time() {
     echo "$isp_hostname" > /etc/hostname
-    apt-get install -y tzdata && timedatectl set-timezone Asia/Novosibirsk
+    apt-get update && apt-get install -y tzdata
+    timedatectl set-timezone Asia/Novosibirsk
 }
 
 # Nftables configuration function
@@ -127,46 +124,42 @@ configure_nftables() {
         return
     fi
 
-    sed -i 's/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/' /etc/net/sysctl.conf
+    # Включаем forward IPv4
+    sed -i 's/net.ipv4.ip_forward = 0/net.ipv4.ip_forward = 1/' /etc/sysctl.conf
+    sysctl -p
 
     apt-get update && apt-get install -y nftables
     systemctl enable --now nftables
 
+    # Исправленный here-document для nftables
+    cat > /etc/nftables.conf <<EOF
+#!/usr/sbin/nft -f
+# you can find examples in /usr/share/nftables/
 
-
-    # Создаем файл с сохранением форматирования через here-document
-    cat > /etc/nftables/nftables.nft <<'EOF'
-    {
-    #!/usr/sbin/nft -f
-    # you can find examples in /usr/share/nftables/
-    
-    table inet filter {
-        chain input {
-            type filter hook input priority 0;
-        }
-    
-        chain forward {
-            type filter hook forward priority 0;
-        }
-    
-        chain output {
-            type filter hook output priority 0;
-        }
-    }
-    
-    table ip nat {
-        chain postrouting {
-            type nat hook postrouting priority 0; policy accept;
-            ip saddr "$net_int2" oifname "$isp_int1" counter packets 0 bytes 0 masquerade
-            ip saddr "$net_int3" oifname "$isp_int1" counter packets 0 bytes 0 masquerade
-        }
+table inet filter {
+    chain input {
+        type filter hook input priority 0;
     }
 
-
+    chain forward {
+        type filter hook forward priority 0;
     }
-    EOF
 
-    systemctl restart nftables && systemctl restart network
+    chain output {
+        type filter hook output priority 0;
+    }
+}
+
+table ip nat {
+    chain postrouting {
+        type nat hook postrouting priority 0; policy accept;
+        ip saddr $net_int2 oifname "$isp_int1" counter packets 0 bytes 0 masquerade
+        ip saddr $net_int3 oifname "$isp_int1" counter packets 0 bytes 0 masquerade
+    }
+}
+EOF
+
+    systemctl restart nftables
 }
 
 # Function to check functionality
