@@ -3,6 +3,7 @@
 # Global variable declarations
 declare -g isp_int1 isp_int2 isp_int3 isp_ip_int2 isp_ip_int3 isp_hostname
 declare -g net_int2 net_int3
+declare -g interfaces_configured=false nftables_configured=false hostname_configured=false timezone_configured=false
 LOG_FILE="/var/log/isp_config.log"
 
 # Function to log messages
@@ -30,7 +31,7 @@ validate_input() {
 validate_ip() {
     local ip_subnet=$1
     if [[ ! $ip_subnet =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
-        echo "Error: Invalid IP/sub.should format. Use e.g., 192.168.1.1/24."
+        echo "Error: Invalid IP/subnet format. Use e.g., 192.168.1.1/24."
         return 1
     fi
     local mask=$(echo "$ip_subnet" | awk -F/ '{print $2}')
@@ -49,7 +50,7 @@ validate_interface() {
         return 1
     fi
     return 0
-}
+
 
 # Function to calculate network address
 calculate_network() {
@@ -149,6 +150,7 @@ EOF
         echo "Error: Failed to restart network service"
         return 1
     }
+    interfaces_configured=true
     log "Network interfaces configured successfully"
 }
 
@@ -162,6 +164,8 @@ configure_time() {
         echo "Error: Failed to configure timezone"
         return 1
     }
+    hostname_configured=true
+    timezone_configured=true
     log "Hostname and timezone configured successfully"
 }
 
@@ -194,7 +198,7 @@ configure_nftables() {
         return 1
     }
 
-    # Configure nftables rules
+    # Configure nftables rules with masquerade
     cat > /etc/nftables.nft <<EOF
 #!/usr/sbin/nft -f
 table inet filter {
@@ -229,7 +233,8 @@ EOF
         echo "Error: Failed to restart nftables service"
         return 1
     }
-    log "Nftables configured successfully"
+    nftables_configured=true
+    log "Nftables configured successfully with masquerade rules for $net_int2 and $net_int3"
 }
 
 # Function to check functionality
@@ -251,6 +256,16 @@ check_function() {
     fi
 }
 
+# Function to show configuration status
+show_config_status() {
+    echo "Configuration Status:"
+    echo "Interfaces: ${interfaces_configured:-false}"
+    echo "Nftables: ${nftables_configured:-false}"
+    echo "Hostname: ${hostname_configured:-false}"
+    echo "Timezone: ${timezone_configured:-false}"
+    log "Displayed configuration status"
+}
+
 # Menu display function
 show_menu() {
     clear
@@ -260,6 +275,7 @@ show_menu() {
     echo "3. Configure hostname and timezone"
     echo "4. Configure Nftables"
     echo "5. Check configuration"
+    echo "6. Show configuration status"
     echo "0. Exit"
     read -p "Select an option: " choice
     case $choice in
@@ -268,6 +284,7 @@ show_menu() {
         3) configure_time ;;
         4) configure_nftables ;;
         5) check_function ;;
+        6) show_config_status ;;
         0) log "Exiting script"; exit 0 ;;
         *) echo "Invalid choice" ;;
     esac
@@ -275,7 +292,7 @@ show_menu() {
 
 # Check for required utilities
 check_dependencies() {
-    for cmd in ip awk sed nft; do
+    for cmd in ip awk sed; do
         if ! command -v $cmd >/dev/null; then
             log "Error: $cmd is not installed"
             echo "Error: $cmd is not installed"
